@@ -1,0 +1,235 @@
+---
+title: "Class 9: Structural Bioinformatics (pt.1)"
+author: "Joseph Girgiss (PID: A17388247)"
+format: html
+---
+
+## The PDB Database
+
+The main database for structural biology is called the PDB. Let's have a look at what it contains: 
+
+Download a CSV file from the PDB site (accessible from “Analyze” > “PDB Statistics” > “by Experimental Method and Molecular Type”
+
+```{r}
+stats <- read.csv("~/Downloads/Data Export Summary.csv")
+```
+
+```{r}
+stats$Total
+```
+
+Oh, these are characters not numeric... 
+
+```{r pdbstats, message=FALSE}
+library(readr)
+stats <- read_csv("~/Downloads/Data Export Summary.csv")
+stats
+```
+
+> Q1: What percentage of structures in the PDB are solved by X-Ray and Electron Microscopy?
+
+```{r}
+n.total <- sum(stats$Total)
+n.Xray <- sum(stats$`X-ray`)
+n.EM <- sum(stats$EM)
+
+xray_percent <- (n.Xray/n.total) * 100
+cat(round(xray_percent, 2), "%\n")
+
+em_percent <- (n.EM/n.total) * 100
+cat(round(em_percent, 2), "%\n")
+```
+
+> Q2: What proportion of structures in the PDB are protein?
+
+```{r}
+protein_only_percent <-sum(stats$Total[1])/n.total * 100
+cat(round(protein_only_percent, 2), "%\n")
+
+n.protein_total <- sum(stats$Total[1:3])
+protein_total_percent <-(n.protein_total/n.total) * 100
+cat(round(protein_total_percent, 2), "%\n")
+```
+
+> Q3: Type HIV in the PDB website search box on the home page and determine how many HIV-1 protease structures are in the current PDB?
+
+There are 1,150 HIV-1 protease structures in the current PDB. 
+
+## Exploring PDB structures
+
+Package for structural bioinformatics
+
+```{r}
+library(bio3d)
+hiv <- read.pdb("1hsg")
+hiv
+```
+
+Let's first use the Mol*viewer to explore this structure. 
+
+![My first view of HIV-1 protease](1HSG.png)
+
+> Q4: Water molecules normally have 3 atoms. Why do we see just one atom per water molecule in this structure?
+
+We see only one atom per water molecule because only the oxygen atom is resolved and included in the structure; the hydrogens are omitted since they’re not visible at typical crystallographic resolutions. Their absence also helps to minimize clustering and improve visibility. 
+
+> Q5: There is a critical “conserved” water molecule in the binding site. Can you identify this water molecule? What residue number does this water molecule have
+
+Residue number: HOH 308
+
+> Q6: 
+
+![](1HSG(water).png)
+
+> Q7: How many amino acid residues are there in this pdb object? 
+
+198
+
+> Q8: Name one of the two non-protein residues? 
+
+HOH (water) and the MK1 ligand. 
+
+> Q9: How many protein chains are in this structure?
+
+There are 2 chains: A and B
+
+## PDB objects in R
+
+```{r}
+head(hiv$atom)
+```
+
+Extract sequence 
+```{r}
+pdbseq(hiv)
+```
+
+```{r}
+chainA_seq <- pdbseq (trim.pdb(hiv, chain="A"))
+```
+
+I can interactively view these PDB objects in R with the new **bio3dview** package. This is not yet on CRAN.
+
+To install this I can setup **pak** package and use it to install **bio3dview** from GitHub in my console. 
+
+```{r}
+library(bio3dview)
+sel <- atom.select(hiv, resno=25)
+view.pdb(hiv, highlight = sel,
+         highlight.style = "spacefill",
+         colorScheme = "chain", 
+         col=c("blue", "orange"),
+         backgroundColor = "pink")
+```
+
+install.packages("bio3d")
+install.packages("NGLVieweR")
+
+install.packages("pak")
+pak::pak("bioboot/bio3dview")
+
+install.packages("BiocManager")
+BiocManager::install("msa")
+
+> Q10. Which of the packages above is found only on BioConductor and not CRAN? 
+
+The msa package is only found on BioConductor. 
+
+> Q11. Which of the above packages is not found on BioConductor or CRAN?: 
+
+bio3dview; it was installed from GitHub using pak::pak("bioboot/bio3dview"). 
+
+> Q12. True or False? Functions from the pak package can be used to install packages from GitHub and BitBucket?
+
+True
+
+## Predict protein flexibility
+
+We can run a bioinformatics calculation to predict protein dynamics - i.e. functional motions. 
+
+We will use the `nma()` function
+```{r}
+adk <- read.pdb("6s36")
+adk
+```
+
+```{r}
+m <- nma(adk)
+plot(m)
+```
+
+
+Generate a "trajectory" of predicted motion
+```{r}
+mktrj(m, file="ADK_nma.pdb")
+view.nma(m)
+```
+
+
+```{r, eval=FALSE}
+library(bio3d)
+aa <- get.seq("1ake_A")
+aa
+```
+
+> Q13. How many amino acids are in this sequence, i.e. how long is this sequence?
+
+214
+
+## Normal mode analysis
+
+```{r, eval=FALSE}
+library(bio3d)
+aa <- get.seq("1ake_A")
+
+#Blast or hmmer search 
+b <- blast.pdb(aa) 
+```
+
+```{r, eval=FALSE}
+#Plot a summary of search results
+hits <- plot(b)
+
+#List out some 'top hits'
+head(hits$pdb.id)
+hits <- NULL
+hits$pdb.id <- c('1AKE_A','6S36_A','6RZE_A','3HPR_A','1E4V_A','5EJE_A','1E4Y_A','3X2S_A','6HAP_A','6HAM_A','4K46_A','3GMT_A','4PZL_A')
+
+#Download releated PDB files
+files <- get.pdb(hits$pdb.id, path="pdbs", split=TRUE, gzip=TRUE)
+
+#Align releated PDBs
+pdbs <- pdbaln(files, fit = TRUE, exefile="msa")
+
+#Vector containing PDB codes for figure axis
+ids <- basename.pdb(pdbs$id)
+
+#Draw schematic alignment
+plot(pdbs, labels=ids)
+
+```
+
+```{r, eval=FALSE}
+# NMA of all structures
+rd <- rmsd(pdbs)
+hc.rd <- hclust(dist(rd))
+grps.rd <- cutree(hc.rd, k=3)
+modes <- nma(pdbs)
+plot(modes, pdbs, col=grps.rd)
+```
+
+
+![](imageclass9.png)
+
+> Q14. What do you note about this plot? Are the black and colored lines similar or different? Where do you think they differ most and why?
+
+
+The plot compares the flexibility (Fluctuations) of several protein structures across their length (Residue number). The main observation is a stark difference in flexibility between two groups of structures.
+
+The red and green lines show much higher fluctuations (peaks up to 3.0) than the black lines (peaks rarely above 0.5). This means the proteins represented by the colored lines are significantly more flexible and dynamic.
+
+Despite the difference in size, both the black and colored lines show peaks at the same locations (around residues 50-60, 125-145, and 150-160). This indicates that the same protein regions are the most flexible in all structures.
+
+The lines differ most dramatically in the regions of highest movement: Residues  125-145 and 150-160. This may be because the black lines represent the structures in a closed/ligand-bound state where the ligand “locks” the loops in place. The red and green lines may be the open state/without a ligand, allowing the loops to move freely and leading to larger fluctuations. 
+
+
