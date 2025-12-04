@@ -1,0 +1,2 @@
+This is a simple nano text editor that will be available on every unix machine - that is why I am showing it to you. 
+
