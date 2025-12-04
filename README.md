@@ -1,7 +1,7 @@
 # BIMM143
 Classwork for [BIMM143 at UC San Diego](https://jbgirgiss.github.io/bimm143_github/) during Fall 2025. 
 
-- Class 04 [R Fundamentals](class04/class04.pdf)
+- Class 04 [R Fundamentals](class04/class04.md)
 
 - Class 05 [Data visualization with ggplot](class05/class05.md)
 
